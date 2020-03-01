@@ -54,10 +54,10 @@ If you don't want to use the version of this tool that ships with MABE, then dow
 
 ```sh
 # osx or linux
-nim c -d:release -d:danger --opt:size -o:mbuild build
+nim c build
 
 # windows (visual studio)
-nim c -d:release -d:danger --opt:size -o:mbuild --cc:vcc build
+nim c --cc:vcc build
 ```
 
 For my release builds I go to the extra effort of ensuring cross-version compatibility and small binary size. For linux I use the musl-libc compiler. For mac I target the older 10.13 SDK. For both of those I strip symbols and further compress using the amazing [Ultimate Packer for Executables](https://upx.github.io/).
