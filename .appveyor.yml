@@ -12,7 +12,11 @@ pull_requests:
 branches:
   only:
   - master
-skip_tags: true
+# only attempt to build and deploy when a commit message contains "release please"
+only_commits:
+  message: /release\s+please/
+#skip_tags: true
+#skip_non_tags: true
 clone_depth: 1
 notifications:
 - provider: Email
@@ -100,7 +104,9 @@ install:
    } elseif ($IsMacOS) {
      ## getting modern upx on mac is a pain
      ## so we just ship the repo with one
-     $upxexe = join-path (pwd) "bin/osx_upx"
+     git clone --branch=support_files "https://github.com/joryschossau/mabe-build-tool" supporting_files
+     expand-archive supporting_files/bin/osx_upx.zip (pwd)
+     $upxexe = join-path (pwd) "supporting_files/bin/osx_upx"
    } else { # windows
      wget "https://github.com/upx/upx/releases/download/v3.96/upx-3.96-win64.zip" -outfile upx.zip *>$null
      expand-archive upx.zip (pwd) *>$null
@@ -151,4 +157,3 @@ deploy:
     force_update: true
     on:
       branch: master
-      APPVEYOR_REPO_TAG: true
