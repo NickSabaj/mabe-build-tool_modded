@@ -15,7 +15,7 @@ If you don't want to use the version of this tool that ships with MABE, then dow
 * Build MABE with zero configuration effort
 * Create module wizard
 * Copy module wizard
-* Download module wizard (MABE_extras repo)
+* Download module wizard ([MABE_extras](https://github.com/hintzelab/mabe_extras) repo)
 * Generate IDE project files
 * Use arbitrary c++ compilers
 * Change to debug build mode
