@@ -9,6 +9,8 @@ If you don't want to use the version of this tool that ships with MABE, then dow
 * [Mac](https://github.com/JorySchossau/mabe-build-tool/releases/latest/download/osx_build)
 * [Windows](https://github.com/JorySchossau/mabe-build-tool/releases/latest/download/win_build.exe)
 
+[Older Releases](https://github.com/JorySchossau/mabe-build-tool/releases)
+
 ### Features
 * Build MABE with zero configuration effort
 * Create module wizard
