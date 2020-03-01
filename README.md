@@ -1,10 +1,10 @@
 # mabe-build-tool
-Convenience utility for building MABE
+Convenience utility for building [MABE](https://github.com/hintzelab/mabe)
 
 [![Build status](https://ci.appveyor.com/api/projects/status/kohmpvlejn4uorbm?svg=true)](https://ci.appveyor.com/project/JorySchossau/mabe-build-tool)
 
 ### Downloads
-If you don't want to use the version of this tool that ships with [MABE](https://github.com/hintzelab/mabe), then download here or clone this repo to build it yourself, then put it in the root directory of MABE, and for consistency rename it to `mbuild`.
+If you don't want to use the version of this tool that ships with MABE, then download here or clone this repo to build it yourself, then put it in the root directory of MABE, and for consistency rename it to `mbuild`.
 * [Linux](https://github.com/JorySchossau/mabe-build-tool/releases/latest/download/lin_build)
 * [Mac](https://github.com/JorySchossau/mabe-build-tool/releases/latest/download/osx_build)
 * [Windows](https://github.com/JorySchossau/mabe-build-tool/releases/latest/download/win_build.exe)
