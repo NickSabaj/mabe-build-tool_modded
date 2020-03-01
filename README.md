@@ -50,7 +50,7 @@ If you don't want to use the version of this tool that ships with MABE, then dow
 ```
 
 ### Build from source
-* Requires the excellent [Nim](https://nim-lang.org) compiler.
+* Requires the [Nim](https://nim-lang.org) compiler.
 * Which requires a C compiler.
 * Until I make a build package for this, use the below to build yourself:
 
@@ -62,7 +62,7 @@ nim c build
 nim c --cc:vcc build
 ```
 
-For my release builds I go to the extra effort of ensuring cross-version compatibility and small binary size. For linux I use the musl-libc compiler. For mac I target the older 10.13 SDK. For both of those I strip symbols and further compress using the amazing [Ultimate Packer for Executables](https://upx.github.io/).
+For my release builds I go to the extra effort of ensuring cross-version compatibility and small binary size. For linux I use the musl-libc compiler. For mac I target the older 10.13 SDK. For both of those I strip symbols. For all of them I further compress the binaries using the [Ultimate Packer for Executables](https://upx.github.io/).
 
 ### To Do
 * [ ] Refactor the httpclient_tlse custom nim code that gives SSL/TLS support into a proper stand-alone nim package
