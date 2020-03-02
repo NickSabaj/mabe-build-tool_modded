@@ -282,8 +282,8 @@ proc get_supported_cmake_projects():OrderedTable[string,string] =
       "MSYS Makefiles":"make",
       "Unix Makefiles":"umake",
       "MinGW Makefiles":"mmake",
-      "Visual Studio 16 2019":"vs16",
-      "Visual Studio 15 2017 [arch]":"vs15",
+      "Visual Studio 16 2019":"vs",
+      "Visual Studio 15 2017 [arch]":"vs2017",
       "CodeBlocks - MinGW Makefiles":"cbmmake",
       "CodeBlocks - NMake Makefiles":"cbnmake",
       "CodeBlocks - Ninja":"cbninja",
@@ -306,7 +306,7 @@ proc get_supported_cmake_projects():OrderedTable[string,string] =
       "Eclipse CDT4 - Unix Makefiles":"eclipsemake"}.toTable
   when defined(linux):
     const full_table_to_short_commands = {
-      "Unix Makefiles":"umake",
+      "Unix Makefiles":"make",
       "Ninja":"ninja",
       "CodeBlocks - Ninja":"cbninja",
       "CodeBlocks - Unix Makefiles":"cbmake",
@@ -320,7 +320,7 @@ proc get_supported_cmake_projects():OrderedTable[string,string] =
       "Eclipse CDT4 - Unix Makefiles":"eclipsemake"}.toTable
   when defined(macosx):
     const full_table_to_short_commands = {
-      "Unix Makefiles":"umake",
+      "Unix Makefiles":"make",
       "Xcode":"xcode",
       "Ninja":"ninja",
       "CodeBlocks - Ninja":"cbninja",
@@ -428,7 +428,7 @@ proc generate_and_build() =
     if cxx_args.len != 0:
       write_warning("Compiler Not Found: ",&"'{cxx_args[0]}' not found. Using Visual Studio.")
     if generate_args.len != 0:
-      write_warning("Only VS Installed: ","Only Visual Studio found, so only VS project files can be created. gcc / clang needed for most other types.")
+      write_warning("Only VS Installed: ","Only Visual Studio found, so only VS project files can be created. gcc / clang needed for most other types. You don't need to specify --vs AND a generate project, just a generate project will do.")
     run_cmake_configure cmake_options
     if (generate_args.len == 0) and (not vcvars_exists()):
       write_error("Error: ","Trying to build with Visual Studio, but no Visual Studio found")
@@ -472,8 +472,10 @@ proc generate_and_build() =
   # add the compiler to the cmake options
   cmake_options.add_cxx_compiler cxx_compiler
 
-  # run cmake configuration
+  # run cmake configuration (this also generates project files - Makefile by default)
   run_cmake_configure cmake_options
+  if generate_enabled:
+    write_success("Project Success: ","Project created in build/")
 
   # if we aren't making a project file
   # then do a full compile
