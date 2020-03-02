@@ -495,6 +495,9 @@ proc list_templates() =
 proc is_valid_module_type(module_type:string):bool =
   if module_type.to_lower_ascii in ["archivist","brain","genome","optimizer","world"]: result = true
   else: result = false
+
+proc is_valid_template_module_type(module_type:string):bool =
+  result = module_type.is_valid_module_type()
   if (result == true) and (not file_exists "src" / "Utilities" / "Templates" / "Template"&module_type.to_lower_ascii.capitalize_ascii&".h"):
     write_warning("Missing: ",&"sorry, no template files for {module_type.to_lower_ascii}s exist yet")
     result = false
@@ -529,7 +532,7 @@ proc list_or_make_templates() =
   if new_args.len == 0 or new_args[0] == "help":
     list_templates()
     quit(0)
-  if not new_args[0].is_valid_module_type():
+  if not new_args[0].is_valid_template_module_type():
     write_error("Error: ",&"'{new_args[0]}' not a valid module type")
     quit(1)
   if new_args.len == 1: # actually need 2 arguments
