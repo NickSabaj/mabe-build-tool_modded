@@ -65,4 +65,4 @@ nim c --cc:vcc build
 For my release builds I go to the extra effort of ensuring cross-version compatibility and small binary size. For linux I use the musl-libc compiler. For mac I target the older 10.13 SDK. For both of those I strip symbols. For all of them I further compress the binaries using the [Ultimate Packer for Executables](https://upx.github.io/).
 
 ### To Do
-* [ ] Refactor the httpclient_tlse custom nim code that gives SSL/TLS support into a proper stand-alone nim package
+* [ ] Replace httpclient_tlse custom nim code that gives SSL/TLS support with static compiling libcurl (for some reason I thought curl didn't handle TLS)
