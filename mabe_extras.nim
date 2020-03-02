@@ -9,7 +9,7 @@ import streams
 ## FileEntry:tuple[remotepath,localpath,url:string,kind:PathComponent,moduledir:bool]
 ## directory_structure_from_manifest():seq[FileEntry]
 ##   returns a sequence of file objects
-##   from dir structure in src/
+##   from dir structure in code/
 ## directory_structure_from_local():seq[FileEntry]
 ##   returns a sequence of file objects
 ##   from dir structure in remote repository mabe_extras
@@ -78,9 +78,9 @@ proc directory_structure_from_local*():seq[FileEntry] =
   ## so every entry has entry.moduledir = true
   const module_types = ["Archivist","Brain","Genome","Optimizer","World"]
   for module_type in module_types:
-    for dirname in walk_dirs("src" / module_type / "*"):
+    for dirname in walk_dirs("code" / module_type / "*"):
       var entry:FileEntry
-      entry.localpath = dirname.replace("src"&DirSep,"")
+      entry.localpath = dirname.replace("code"&DirSep,"")
       entry.moduledir = true
       result.add entry
 

@@ -63,7 +63,7 @@ template capture_command(p:OptParser, command:untyped) {.dirty.} =
 when defined(windows):
   register_command(vs)
 register_command(force,aliases=["f"])
-register_command(init)
+register_command(init,aliases=["refresh"])
 register_command(cxx,nargs=1,aliases=["c"])
 register_command(debug,aliases=["g"])
 register_command(generate,nargs=1,aliases=["gen"])
@@ -133,10 +133,10 @@ proc good_cmake_version():bool =
       write_error("Error: ","couldn't get proper cmake version information. Do you have a non-standard cmake installed?")
       quit(1)
 
-proc error_if_no_src_cmake_cmakelists_modules_or_build() =
-  # check for ./src/
-  if not dir_exists "src":
-    write_error("Error: ","No src/ dir found. Is this a complete MABE project?")
+proc error_if_no_code_cmake_cmakelists_modules_or_build() =
+  # check for ./code/
+  if not dir_exists "code":
+    write_error("Error: ","No code/ dir found. Is this a complete MABE project?")
     quit(1)
   # prepare (clean out cmake cache) ./build/
   remove_file "build" / "CMakeCache.txt"
@@ -201,10 +201,10 @@ proc new_module_properties(enabled:bool,default:bool=false):ModuleProperties =
 
 proc new_module_list():auto = init_table[string,ModuleProperties]()
 
-proc get_src_modules():ModulesTable =
-  # scans the ./src/ dir for all module names
+proc get_code_modules():ModulesTable =
+  # scans the ./code/ dir for all module names
   for module_type in ["Archivist","Brain","Genome","Optimizer","World"]:
-    for filetype,filename in walk_dir "src" / module_type:
+    for filetype,filename in walk_dir "code" / module_type:
       if filetype == pcDir:
         var module_name = filename.split_path.tail
         module_name.remove_suffix module_type
@@ -253,12 +253,12 @@ proc get_txt_modules():ModulesTable =
       result.mget_or_put(module_type,new_module_list())[module_name] = new_module_properties(enabled=enabled,default=default)
       continue
 
-proc verify_and_merge_module_tables(txt,src:ModulesTable):ModulesTable =
-  result = src
+proc verify_and_merge_module_tables(txt,code:ModulesTable):ModulesTable =
+  result = code
   for txt_module_type,txt_module_list in txt:
     for txt_module_name,txt_module_properties in txt_module_list:
-      if not src[txt_module_type].has_key txt_module_name:
-        write_warning("Removing module: ",&"'{txt_module_name}{txt_module_type}' in modules.txt does not exist in MABE (src/)")
+      if not code[txt_module_type].has_key txt_module_name:
+        write_warning("Removing module: ",&"'{txt_module_name}{txt_module_type}' in modules.txt does not exist in MABE (code/)")
       else:
         result[txt_module_type][txt_module_name].enabled = txt[txt_module_type][txt_module_name].enabled
         result[txt_module_type][txt_module_name].default = txt[txt_module_type][txt_module_name].default
@@ -373,16 +373,16 @@ proc list_generator_options() =
 
 proc refresh_and_get_modules(new_module_type:string="",new_module_name:string=""):ModulesTable =
   # makes sure modules.txt is up to date and returns the contents
-  var txt_modules,src_modules:ModulesTable
-  # if no modules.txt, make it from reading ./src/ files
-  src_modules = get_src_modules()
+  var txt_modules,code_modules:ModulesTable
+  # if no modules.txt, make it from reading ./code/ files
+  code_modules = get_code_modules()
   if not file_exists "modules.txt":
-    enable_default_modules src_modules
-    var content = get_human_readable_formatting src_modules
+    enable_default_modules code_modules
+    var content = get_human_readable_formatting code_modules
     "modules.txt".write_file content
   # now read modules.txt
   txt_modules = get_txt_modules()
-  var final_modules = verify_and_merge_module_tables(txt=txt_modules,src=src_modules)
+  var final_modules = verify_and_merge_module_tables(txt=txt_modules,code=code_modules)
   # enable new default module, if non-zero string
   if new_module_type.len != 0 and new_module_name.len != 0:
     let module_type = new_module_type.to_lower_ascii.capitalize_ascii
@@ -500,15 +500,15 @@ proc is_valid_module_type(module_type:string):bool =
 
 proc is_valid_template_module_type(module_type:string):bool =
   result = module_type.is_valid_module_type()
-  if (result == true) and (not file_exists "src" / "Utilities" / "Templates" / "Template"&module_type.to_lower_ascii.capitalize_ascii&".h"):
+  if (result == true) and (not file_exists "code" / "Utilities" / "Templates" / "Template"&module_type.to_lower_ascii.capitalize_ascii&".h"):
     write_warning("Missing: ",&"sorry, no template files for {module_type.to_lower_ascii}s exist yet")
     result = false
 
 proc copy_template_to_module(module_type, module_name:string) =
   ## forced overwrites whatever files are there
   let
-    source_path = "src" / "Utilities" / "Templates"
-    dest_path = "src" / module_type / module_name&module_type
+    source_path = "code" / "Utilities" / "Templates"
+    dest_path = "code" / module_type / module_name&module_type
     base_name = module_name & module_type
   var source_paths,dest_paths:seq[string]
   for filename in [base_name&".h", base_name&".cpp", "CMakeLists.txt"]:
@@ -598,8 +598,8 @@ proc recursive_copy_files_and_replace_names(source_dir,dest_dir,source_name,dest
 # copy module worker
 proc copy_module(module_type,module_sname,module_dname:string) =
   let
-    module_spath = "src" / module_type / module_sname & module_type
-    module_dpath = "src" / module_type / module_dname & module_type
+    module_spath = "code" / module_type / module_sname & module_type
+    module_dpath = "code" / module_type / module_dname & module_type
   create_dir module_dpath
   recursive_copy_files_and_replace_names(source_dir  = module_spath,
                                dest_dir    = module_dpath,
@@ -625,8 +625,8 @@ proc list_or_make_copy() =
     quit(1)
   # if we got this far, then perform the copy
   let
-    source_name = "src" / copy_args[0].capitalize_ascii / copy_args[1] & copy_args[0].capitalize_ascii
-    dest_name = "src" / copy_args[0].capitalize_ascii / copy_args[2] & copy_args[0].capitalize_ascii
+    source_name = "code" / copy_args[0].capitalize_ascii / copy_args[1] & copy_args[0].capitalize_ascii
+    dest_name = "code" / copy_args[0].capitalize_ascii / copy_args[2] & copy_args[0].capitalize_ascii
   echo &"copying {source_name} to {dest_name}"
   # only as long as the file doesn't already exist
   if (not force_enabled) and (dest_name.dir_exists):
@@ -697,7 +697,7 @@ proc download_and_install(remote_module_path:string,manifest_files:auto) =
   var local_module_path:string
   for entry in manifest_files:
     if entry.remotepath.starts_with remote_module_path:
-      let local_file_path = "src" / entry.localpath
+      let local_file_path = "code" / entry.localpath
       # store local module path once
       # and check for CMakeFiles existence
       if entry.remotepath == remote_module_path:
@@ -773,7 +773,7 @@ const help_text = """
   
   commands:
     <no command>  = Build MABE (default is Release mode)
-    init          = Re-initialize modules.txt from all modules in src/
+    init,refresh  = Re-initialize modules.txt from all modules in code/
     new           = Create a new module; Leave blank for help
     generate, gen = Specify a project file to generate; Leave blank for help
     copy, cp      = Create a new module as a copy of an existing one; Leave blank for help
@@ -817,9 +817,9 @@ proc main() =
     echo help_text
     quit(0)
   
-  error_if_no_src_cmake_cmakelists_modules_or_build()
+  error_if_no_code_cmake_cmakelists_modules_or_build()
 
-  # refresh modules.txt from src/ and -- if exists -- also from modules.txt
+  # refresh modules.txt from code/ and -- if exists -- also from modules.txt
   if init_enabled:
     discard refresh_and_get_modules()
     quit(0)

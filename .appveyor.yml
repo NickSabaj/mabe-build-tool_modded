@@ -12,9 +12,9 @@ pull_requests:
 branches:
   only:
   - master
-# only attempt to build and deploy when a commit message contains "release please"
+# only attempt to build and deploy when a commit message contains "please release"
 only_commits:
-  message: /release\s+please/
+  message: /please\s+release/
 #skip_tags: true
 #skip_non_tags: true
 clone_depth: 1
