@@ -65,7 +65,7 @@ when defined(windows):
 register_command(force,aliases=["f"])
 register_command(init,aliases=["refresh"])
 register_command(cxx,nargs=1,aliases=["c"])
-register_command(debug,aliases=["g"])
+register_command(debug,aliases=["d"])
 register_command(generate,nargs=1,aliases=["gen"])
 register_command(new,nargs=2)
 register_command(copy,nargs=3,aliases=["cp"])
@@ -428,13 +428,14 @@ proc generate_and_build() =
     if cxx_args.len != 0:
       write_warning("Compiler Not Found: ",&"'{cxx_args[0]}' not found. Using Visual Studio.")
     if generate_args.len != 0:
-      write_warning("Only VS Installed: ","Only Visual Studio found, so only VS project files can be created. gcc / clang needed for most other types. You don't need to specify --vs AND a generate project, just a generate project will do.")
+      write_warning("Only VS Installed: ","Only Visual Studio found, so only VS project files can be created. gcc / clang needed for most other types.")
     run_cmake_configure cmake_options
     if (generate_args.len == 0) and (not vcvars_exists()):
       write_error("Error: ","Trying to build with Visual Studio, but no Visual Studio found")
       quit(1)
     if (generate_args.len == 0):
-      run_cmake_build "-p:OutDir=../work/ -p:AssemblyName=mabe.exe;Configuration=Release;std=c++latest;BuildInParallel=true -m"
+      var BUILD_TYPE = if debug_enabled: "Debug" else: "Release"
+      run_cmake_build &"-p:OutDir=../work/ -p:AssemblyName=mabe.exe;Configuration={BUILD_TYPE};std=c++latest;BuildInParallel=true -m"
     quit(0)
   var cxx_compiler = if cxx_args.len != 0: cxx_args[0] else: "g++"
 
@@ -456,13 +457,10 @@ proc generate_and_build() =
       cmake_options.add "Unix Makefiles"
 
   # set debug/release configuration
-  if debug_enabled:
-    cmake_options.add "-DCMAKE_BUILD_TYPE=Debug"
-    write_warning("Warning: ","configuring for Debug mode build")
-  else:
-    cmake_options.add "-DCMAKE_BUILD_TYPE=Release"
-    if generate_enabled and generate_args.len != 0 and generate_args[0] == "xcode":
-      cmake_options.add "-DCMAKE_CONFIGURATION_TYPES=Release"
+  var BUILD_TYPE = if debug_enabled: "Debug" else: "Release"
+  cmake_options.add &"-DCMAKE_BUILD_TYPE={BUILD_TYPE}"
+  cmake_options.add &"-DCMAKE_CONFIGURATION_TYPES={BUILD_TYPE}"
+  write_warning("Warning: ",&"configuring for {BUILD_TYPE} mode build")
 
   # fail if the compiler doesn't exist
   if not exe_exists cxx_compiler:
@@ -540,6 +538,13 @@ proc list_or_make_templates() =
   if new_args.len == 1: # actually need 2 arguments
     write_error("Error: ","you need to provide a new name, in addition to the type of module you are creating")
     quit(1)
+  # remove extraneous module names from target names
+  for typeName in "Archivist Brain Genome Optimizer World".split:
+    for i,newName in new_args.mpairs:
+      if i==0: continue
+      if newName.endsWith(typeName) and newName.len > typeName.len:
+        newName.removeSuffix typeName
+        break
   for each_name in new_args[1 .. ^1]: # skip first argument
     copy_template_to_module(new_args[0].to_lower_ascii.capitalize_ascii, each_name)
 
@@ -558,7 +563,6 @@ proc list_installed_modules() =
   for module_type,module_names in table:
     echo module_type,"s"
     for module_name in module_names:
-      #echo &"  --copy {module_type.to_lower_ascii} {module_name} NEW_NAME"
       echo &"  {module_name}"
     echo ""
   echo "Example: mbuild copy world Test MyTestVariation"
@@ -611,6 +615,16 @@ proc list_or_make_copy() =
   if copy_args.len == 0 or copy_args[0] == "help":
     list_installed_modules()
     quit(0)
+  # remove extraneous module names from source module
+  for name in "Archivist Brain Genome Optimizer World".split:
+    if copy_args[1].endsWith(name) and copy_args[1].len > name.len:
+      copy_args[1].removeSuffix name
+      break
+  # remove extraneous module names from target module
+  for name in "Archivist Brain Genome Optimizer World".split:
+    if copy_args[2].endsWith(name) and copy_args[2].len > name.len:
+      copy_args[2].removeSuffix name
+      break
   # ensure valid module type
   if not copy_args[0].is_valid_module_type():
     write_error("Error: ",&"'{copy_args[0]}' not a valid module type")
@@ -781,8 +795,8 @@ const help_text = """
 
   options:
     --force, -f   = Force the associated command (clean rebuild, overwrite files, etc.)
-    --cxx, -c     = Specify an alternative c++ compiler ex: g++ clang++ pgc++ etc.
-    --debug, -g   = Configure and build in debug mode (default Release)
+    --cxx, -c     = Specify an alternative c++ compiler ex: g++ clang++ pgc++ etc. (must be on path)
+    --debug, -d   = Configure and build in debug mode (default Release)
     --help, -h    = Show this help
     
 """
@@ -798,6 +812,7 @@ proc main() =
       of cmdEnd: break
       of cmdShortOption, cmdLongOption:
         p.capture_command force
+        p.capture_command debug
         p.capture_command cxx
         p.capture_command help
         write_error("Error: ",&"Unknown command or option '{p.key}'")
