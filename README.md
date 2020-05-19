@@ -45,7 +45,7 @@ If you don't want to use the version of this tool that ships with MABE, then dow
   options:
     --force, -f   = Force the associated command (clean rebuild, overwrite files, etc.)
     --cxx, -c     = Specify an alternative c++ compiler ex: g++ clang++ pgc++ etc.
-    --debug, -g   = Configure and build in debug mode (default Release)
+    --debug, -d   = Configure and build in debug mode (default Release)
     --help, -h    = Show this help
 ```
 
