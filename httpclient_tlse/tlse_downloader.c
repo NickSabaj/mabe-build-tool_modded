@@ -9,7 +9,6 @@
 #include <netdb.h>
 #endif
 #include "tlse/tlse.c"
-#include "tlse/tls_root_ca.h"
 #include "tlse_downloader.h"
 #include <string.h>
 
@@ -51,6 +50,19 @@ int verify(struct TLSContext *context, struct TLSCertificate **certificate_chain
     if (err)
         return err;
 
+    return no_error;
+}
+int verify_stub(struct TLSContext *context, struct TLSCertificate **certificate_chain, int len) {
+    int i;
+    if (certificate_chain) {
+        for (i = 0; i < len; i++) {
+            struct TLSCertificate *certificate = certificate_chain[i];
+            // check certificate ...
+        }
+    }
+    //return certificate_expired;
+    //return certificate_revoked;
+    //return certificate_unknown;
     return no_error;
 }
 
@@ -117,12 +129,6 @@ int getContent(char **result, char *url) {
   // both are mapped to TLSContext
   SSL *clientssl = SSL_CTX_new(SSLv3_client_method());
 
-  // uncomment next lines to load ROOT CA from root.pem
-  //int res = SSL_CTX_root_ca(clientssl, "../root.pem");
-  //fprintf(stderr, "Loaded %i certificates\n", res);
-  // no, let's statically compile it in and load from the tls_root_ca.h file instead
-  int res = tls_load_root_certificates(clientssl, ROOT_CA_DEF, ROOT_CA_DEF_LEN);
-
   // =========================================================================== //
   // IMPORTANT NOTE:
   // SSL_new(clientssl) MUST never be called
@@ -132,7 +138,7 @@ int getContent(char **result, char *url) {
   // optionally, we can set a certificate validation callback function
   // if set_verify is not called, and root ca is set, `tls_default_verify`
   // will be used (does exactly what `verify` does in this example)
-  SSL_CTX_set_verify(clientssl, SSL_VERIFY_PEER, verify);
+  SSL_CTX_set_verify(clientssl, SSL_VERIFY_PEER, verify_stub);
 
   if (!clientssl) {
     //fprintf(stderr, "Error initializing client context\n");
