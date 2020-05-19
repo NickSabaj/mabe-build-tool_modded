@@ -89,3 +89,12 @@ proc `in`*(query:FileEntry, list:openArray[FileEntry]):bool =
   for entry in list:
     if query.localpath == entry.localpath: return true
   return false
+
+# for testing purposes
+when isMainModule:
+  var line:string
+  var manifest = new_string_stream(get_content repo_path&"manifest.txt")
+  while manifest.read_line line:
+    echo line
+  #var files = directory_structure_from_manifest()
+  #echo files.len
