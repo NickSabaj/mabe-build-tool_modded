@@ -8,11 +8,12 @@ import tables
 import mabe_extras
 import httpclient_tlse
 import parseopt
+import strscans
 
 const minimum_cmake_version_string = "3.13.3" # 3.13.3
 const minimum_cmake_version = minimum_cmake_version_string.replace(".","").parse_int()
 
-const module_types = ["Archivist","Brain","Genome","Optimizer","World"]
+const MODULE_TYPES = ["Archivist","Brain","Genome","Optimizer","World"]
 when defined(windows):
   const cmake_exe = "C:\\Program Files\\CMake\\bin\\cmake.exe"
 when defined(linux):
@@ -63,6 +64,7 @@ template capture_command(p:OptParser, command:untyped) {.dirty.} =
 when defined(windows):
   register_command(vs)
 register_command(force,aliases=["f"])
+register_command(quick,aliases=["q"])
 register_command(init,aliases=["refresh"])
 register_command(cxx,nargs=1,aliases=["c"])
 register_command(debug,aliases=["d"])
@@ -139,7 +141,8 @@ proc error_if_no_code_cmake_cmakelists_modules_or_build() =
     write_error("Error: ","No code/ dir found. Is this a complete MABE project?")
     quit(1)
   # prepare (clean out cmake cache) ./build/
-  remove_file "build" / "CMakeCache.txt"
+  if not quick_enabled:
+    remove_file "build" / "CMakeCache.txt"
   create_dir "build"
   # prepare ./work/
   create_dir "work"
@@ -203,17 +206,23 @@ proc new_module_list():auto = init_table[string,ModuleProperties]()
 
 proc get_code_modules():ModulesTable =
   # scans the ./code/ dir for all module names
-  for module_type in ["Archivist","Brain","Genome","Optimizer","World"]:
+  for module_type in MODULE_TYPES:
     for filetype,filename in walk_dir "code" / module_type:
       if filetype == pcDir:
         var module_name = filename.split_path.tail
         module_name.remove_suffix module_type
         result.mget_or_put(module_type,new_module_list())[module_name] = new_module_properties(enabled=false)
+        # explore CMakeLists.txt and scrape default status
+        if exists_file filename / "CMakeLists.txt":
+          for line in lines(filename / "CMakeLists.txt"):
+            var ignoreme:string
+            if scanf(line, """option$s($senable_$*ON$s)$s""", ignoreme):
+              result[module_type][module_name].default = true
+
 
 proc enable_default_modules(allmodules:var ModulesTable) =
-  const default_categories = ["Archivist","Brain","Genome","Optimizer","World"]
   const default_modules = ["LODwAP","CGP","Circular","Simple","Test"]
-  for i,(module_type,module_name) in zip(default_categories,default_modules):
+  for i,(module_type,module_name) in zip(MODULE_TYPES,default_modules):
     if allmodules[module_type].has_key module_name:
       allmodules[module_type][module_name].enabled = true
       allmodules[module_type][module_name].default = true
@@ -373,27 +382,28 @@ proc list_generator_options() =
 
 proc refresh_and_get_modules(new_module_type:string="",new_module_name:string=""):ModulesTable =
   # makes sure modules.txt is up to date and returns the contents
-  var txt_modules,code_modules:ModulesTable
-  # if no modules.txt, make it from reading ./code/ files
+  var txt_modules,code_modules,final_modules:ModulesTable
+  # if no modules.txt (or if forcing), make it from reading ./code/ files
   code_modules = get_code_modules()
-  if not file_exists "modules.txt":
-    enable_default_modules code_modules
+  if force_enabled or not file_exists "modules.txt":
+    #enable_default_modules code_modules
     var content = get_human_readable_formatting code_modules
     "modules.txt".write_file content
-  # now read modules.txt
-  txt_modules = get_txt_modules()
-  var final_modules = verify_and_merge_module_tables(txt=txt_modules,code=code_modules)
-  # enable new default module, if non-zero string
-  if new_module_type.len != 0 and new_module_name.len != 0:
-    let module_type = new_module_type.to_lower_ascii.capitalize_ascii
-    for module_name in final_modules[module_type].keys:
-      if module_name == new_module_name:
-        final_modules[module_type][module_name].enabled = true
-        final_modules[module_type][module_name].default = true
-      else:
-        final_modules[module_type][module_name].default = false
-  var final_content = get_human_readable_formatting  final_modules
-  "modules.txt".write_file final_content
+  else:
+    # now read modules.txt
+    txt_modules = get_txt_modules()
+    final_modules = verify_and_merge_module_tables(txt=txt_modules,code=code_modules)
+    # enable new default module, if non-zero string
+    if new_module_type.len != 0 and new_module_name.len != 0:
+      let module_type = new_module_type.to_lower_ascii.capitalize_ascii
+      for module_name in final_modules[module_type].keys:
+        if module_name == new_module_name:
+          final_modules[module_type][module_name].enabled = true
+          final_modules[module_type][module_name].default = true
+        else:
+          final_modules[module_type][module_name].default = false
+    var final_content = get_human_readable_formatting  final_modules
+    "modules.txt".write_file final_content
   write_success("modules.txt Success: ","modules.txt up to date")
   result = final_modules
 
@@ -471,9 +481,10 @@ proc generate_and_build() =
   cmake_options.add_cxx_compiler cxx_compiler
 
   # run cmake configuration (this also generates project files - Makefile by default)
-  run_cmake_configure cmake_options
-  if generate_enabled:
-    write_success("Project Success: ","Project created in build/")
+  if generate_enabled or not quick_enabled:
+    run_cmake_configure cmake_options
+    if generate_enabled:
+      write_success("Project Success: ","Project created in build/")
 
   # if we aren't making a project file
   # then do a full compile
@@ -552,7 +563,7 @@ proc list_or_make_templates() =
 proc list_installed_modules() =
   echo "Using the 'copy' or 'cp' command"
   var table = initOrderedTable[string,seq[string]]()
-  for module_type in module_types:
+  for module_type in MODULE_TYPES:
     table[module_type] = @[]
   let local_files = directory_structure_from_local()
   for entry in local_files:
@@ -573,7 +584,7 @@ proc list_installed_modules() =
 proc is_valid_module_name(name:string):bool =
   let local_files = directory_structure_from_local()
   var query:FileEntry
-  for module_type in module_types:
+  for module_type in MODULE_TYPES:
     query.localpath = module_type&DirSep&name&module_type
     if query in local_files:
       return true
@@ -657,7 +668,7 @@ proc list_extra_modules(manifest_files,local_files:auto) =
     if (entry.moduledir) and (entry.remotepath.len > length_longest_line):
       length_longest_line = entry.remotepath.len
   var table = initOrderedTable[string,seq[FileEntry]]()
-  for module_type in module_types:
+  for module_type in MODULE_TYPES:
     table[module_type] = @[]
   for entry in manifest_files:
     if entry.moduledir:
@@ -687,7 +698,7 @@ proc list_extra_modules(manifest_files,local_files:auto) =
 proc get_module_path(index:int,manifest_files:auto):string =
   # construct table of grouped entries by module_type
   var table = initOrderedTable[string,seq[FileEntry]]()
-  for module_type in module_types:
+  for module_type in MODULE_TYPES:
     table[module_type] = @[]
   for entry in manifest_files:
     if entry.moduledir:
@@ -794,8 +805,9 @@ const help_text = """
     download, dl  = Download extra modules from the MABE_extras repository; Leave blank for help
 
   options:
-    --force, -f   = Force the associated command (clean rebuild, overwrite files, etc.)
+    --force, -f   = Force any associated command (clean rebuild, overwrite files, etc.)
     --cxx, -c     = Specify an alternative c++ compiler ex: g++ clang++ pgc++ etc. (must be on path)
+    --quick, -q   = Don't regenerate files when building, only recompiling minimally changed files. Dangerous!
     --debug, -d   = Configure and build in debug mode (default Release)
     --help, -h    = Show this help
     
@@ -812,6 +824,7 @@ proc main() =
       of cmdEnd: break
       of cmdShortOption, cmdLongOption:
         p.capture_command force
+        p.capture_command quick
         p.capture_command debug
         p.capture_command cxx
         p.capture_command help
