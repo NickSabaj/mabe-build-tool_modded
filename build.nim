@@ -15,7 +15,10 @@ const minimum_cmake_version = minimum_cmake_version_string.replace(".","").parse
 
 const MODULE_TYPES = ["Archivist","Brain","Genome","Optimizer","World"]
 when defined(windows):
-  const cmake_exe = "C:\\Program Files\\CMake\\bin\\cmake.exe"
+  if exists_file "C:\\Program Files\\CMake\\bin\\cmake.exe":
+    const cmake_exe = "C:\\Program Files\\CMake\\bin\\cmake.exe"
+  else:
+    const cmake_exe = "cmake"
 when defined(linux):
   const cmake_exe = "cmake"
 when defined(macosx):
@@ -115,7 +118,7 @@ proc vcvars_exists():bool {.used.} =
 
 proc cmake_exists():bool =
   when defined(windows):
-    result = file_exists "C:\\Program Files\\CMake\\bin\\cmake.exe"
+    result = (file_exists cmake_exe) or (exe_exists cmake_exe)
   when defined(linux):
     result = exe_exists "cmake"
   when defined(macosx):
