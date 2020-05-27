@@ -14,15 +14,20 @@ const minimum_cmake_version_string = "3.13.3" # 3.13.3
 const minimum_cmake_version = minimum_cmake_version_string.replace(".","").parse_int()
 
 const MODULE_TYPES = ["Archivist","Brain","Genome","Optimizer","World"]
+var cmake_exe:string
 when defined(windows):
   if exists_file "C:\\Program Files\\CMake\\bin\\cmake.exe":
-    const cmake_exe = "C:\\Program Files\\CMake\\bin\\cmake.exe"
+    cmake_exe = "C:\\Program Files\\CMake\\bin\\cmake.exe"
   else:
-    const cmake_exe = "cmake"
+    cmake_exe = "cmake"
 when defined(linux):
-  const cmake_exe = "cmake"
+  cmake_exe = "cmake"
 when defined(macosx):
-  const cmake_exe = "/Applications/CMake.app/Contents/bin/cmake"
+  cmake_exe = "/Applications/CMake.app/Contents/bin/cmake"
+  if exists_file "/Applications/CMake.app/Contents/bin/cmake":
+    cmake_exe = "/Applications/CMake.app/Contents/bin/cmake"
+  else:
+    cmake_exe = "cmake"
 
 ## This _was_ using argparse successfully,
 ## but it has far too many bugs necessitating
