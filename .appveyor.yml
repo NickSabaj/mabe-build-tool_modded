@@ -15,7 +15,7 @@ branches:
 # only attempt to build and deploy when a commit message contains "please release"
 only_commits:
   message: /please\s+release/
-#skip_tags: true
+skip_tags: true
 #skip_non_tags: true
 clone_depth: 1
 notifications:
