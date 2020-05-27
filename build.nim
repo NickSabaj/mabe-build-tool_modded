@@ -122,12 +122,7 @@ proc vcvars_exists():bool {.used.} =
   return false
 
 proc cmake_exists():bool =
-  when defined(windows):
-    result = (file_exists cmake_exe) or (exe_exists cmake_exe)
-  when defined(linux):
-    result = exe_exists "cmake"
-  when defined(macosx):
-    result = file_exists "/Applications/CMake.app/Contents/bin/cmake"
+  result = (file_exists cmake_exe) or (exe_exists cmake_exe)
 
 proc good_cmake_version():bool =
   if cmake_exists():
