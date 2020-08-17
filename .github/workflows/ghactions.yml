@@ -1,0 +1,114 @@
+name: Release Builds
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-win:
+    runs-on: windows-latest
+    if: "contains(github.event.head_commit.message, 'please release')"
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Get Nim
+        run: |
+          curl --output choosenim.exe -L "https://github.com/dom96/choosenim/releases/download/v0.6.0/choosenim-0.6.0_windows_amd64.exe"
+          .\choosenim.exe -y stable
+      - name: Add Nim Path
+        run: echo "::add-path::$HOME\.nimble\bin"
+      - name: Test Nim
+        run: nim -v
+      - name: build
+        run: nim c --cc:vcc -o:win_build.exe -d:danger --panics:on build
+      - name: Run UPX
+        uses: crazy-max/ghaction-upx@v1
+        with:
+          version: latest
+          file: ./win_build.exe
+          args: --best -q
+      - name: Upload Windows Binary
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: win_build.exe
+          asset_name: win_build.exe
+          tag: ${{ github.ref }}
+  build-mac:
+    runs-on: macos-latest
+    if: "contains(github.event.head_commit.message, 'please release')"
+    steps:
+      - uses: actions/checkout@v2
+      - name: Download MacOS SDK
+        run: curl --output sdk.tar.xz -L "https://github.com/phracker/MacOSX-SDKs/releases/download/10.15/MacOSX10.13.sdk.tar.xz"
+      - name: Exctract SDK
+        run: |
+          ls -lh sdk.tar.xz
+          tar xf sdk.tar.xz
+          ls .
+      - name: Add Nim Path
+        run: echo "::add-path::$HOME/.nimble/bin"
+      - name: Download Nim and Compile
+        env:
+          MACOSX_DEPLOYMENT_TARGET: 10.13
+        run: |
+          echo ::set-env name=SDKROOT::$PWD/MacOSX10.13.sdk
+          curl --output init.sh https://nim-lang.org/choosenim/init.sh
+          sh init.sh -y
+          nim -v
+          nim c -o:osx_build -d:danger --panics:on build
+          #ls -lh osx_build
+          git clone --branch=support_files "https://github.com/joryschossau/mabe-build-tool" supporting_files
+          unzip supporting_files/bin/osx_upx.zip
+          ./osx_upx -h
+          ./osx_upx --best -q osx_build
+      - name: Upload OSX Binary
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: osx_build
+          asset_name: osx_build
+          tag: ${{ github.ref }}
+  build-linux:
+    runs-on: ubuntu-latest
+    container:
+      image: centos:7 #centos/devtoolset-7-toolchain-centos7
+    if: "contains(github.event.head_commit.message, 'please release')"
+    steps:
+      - name: DoCrash
+        run: which yum
+      - name: Install DevTools
+        run: |
+          yum install gcc autoconf automake make binutils glibc glibc-devel glibc-static -y
+          #yum group install "Development Tools" -y
+          #yum install glibc-static libstdc++-static -y
+      - uses: actions/checkout@v2
+      - name: dl-choosenim
+        run: curl --output init.sh https://nim-lang.org/choosenim/init.sh
+      - name: install-nim
+        run: sh init.sh -y
+      - name: init-nim
+        run: echo "::add-path::/github/home/.nimble/bin"
+      - name: check-versions
+        run: |
+          nim -v
+          ld -v
+      - name: build
+        run: nim c -o:lin_build -d:danger --panics:on --passL:--static --passC:-std=gnu99 build
+      - name: Run UPX
+        uses: crazy-max/ghaction-upx@v1
+        with:
+          version: latest
+          file: ./lin_build
+          args: --best -q
+      - name: See Size
+        run: ls -lh lin_build
+      - name: Upload Linux Binary
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: lin_build
+          asset_name: lin_build
+          tag: ${{ github.ref }}
