@@ -80,6 +80,7 @@ register_command(generate,nargs=1,aliases=["gen"])
 register_command(new,nargs=2)
 register_command(copy,nargs=3,aliases=["cp"])
 register_command(download,nargs=1,aliases=["dl"])
+register_command(info,nargs=1,aliases=["i"])
 register_command(help,aliases=["h"])
 
 proc count_cores():int =
@@ -663,6 +664,33 @@ proc list_or_make_copy() =
     copy_module(module_type=copy_args[0].capitalize_ascii, module_sname=copy_args[1], module_dname=copy_args[2])
   write_success("Copied Module: ",&"new {copy_args[0]} module at: {dest_name}")
 
+# mabe extras download - show info for 1 module
+proc info_extra_module(manifest_files:auto) =
+  var
+    index:int
+    gave_index = false
+    remote_module_path:string
+  # see if user passed an index instead of a module string
+  try:
+    index = info_args[0].parse_int
+    gave_index = true
+  except:
+    discard
+  # find the module path based on index or direct string
+  remote_module_path = ""
+  if gave_index:
+    remote_module_path = index.get_module_path manifest_files
+  else:
+    # verify correct path
+    for entry in manifest_files:
+      if entry.moduledir and (entry.remotepath == info_args[0]):
+        remote_module_path = info_args[0]
+  if remote_module_path.len == 0:
+    write_error("Error: ",&"not a valid mabe_extras module name or index '{info_args[0]}'")
+    quit(1)
+  # download and install files to correct locations
+  remote_module_path.download_and_show_info(manifest_files)
+
 # mabe extras downloading
 proc list_extra_modules(manifest_files,local_files:auto) =
   # find length of longest line we will be printing
@@ -677,7 +705,7 @@ proc list_extra_modules(manifest_files,local_files:auto) =
     if entry.moduledir:
       table[entry.remotepath.split('/')[1]].add entry
   var n = 1
-  echo "Using the 'download' or 'dl' command"
+  echo "Using the 'download' or 'info' commands"
   echo "Specify either the index or full name to download a module"
   echo ""
   echo "index ","module name".align_left(length_longest_line)," status"
@@ -697,6 +725,8 @@ proc list_extra_modules(manifest_files,local_files:auto) =
   echo &"Example: mbuild dl {table[\"Brain\"][0].remotepath}"
   echo "  or"
   echo &"Example: mbuild dl {table[\"Archivist\"].len+1}"
+  echo "  or"
+  echo &"Example: mbuild info {table[\"Archivist\"].len+1}"
 
 proc get_module_path(index:int,manifest_files:auto):string =
   # construct table of grouped entries by module_type
@@ -719,6 +749,21 @@ proc has_cmake_file_in_manifest(entry:FileEntry,manifest_files:auto):bool =
   var query:FileEntry
   query.localpath = entry.localpath&"/CMakeLists.txt"
   result = query in manifest_files
+
+proc download_and_show_info(remote_module_path:string,manifest_files:auto) =
+  var downloaded_all_okay = true
+  var readme:string
+  for entry in manifest_files:
+    if entry.remotepath.starts_with(remote_module_path) and entry.remotepath.toLowerAscii.ends_with("readme.md"):
+      try:
+        readme = get_content(repo_path&entry.remotepath)
+        echo readme
+      except:
+        downloaded_all_okay = false
+        break
+  if not downloaded_all_okay or readme.len == 0:
+    write_warning("Warning: no readme info exists for ",&"{remote_module_path}")
+    quit(1)
 
 proc download_and_install(remote_module_path:string,manifest_files:auto) =
   var downloaded_all_okay = true
@@ -752,6 +797,14 @@ proc download_and_install(remote_module_path:string,manifest_files:auto) =
   else:
     write_error("Install Failed: ",&"{remote_module_path} could not be installed")
     quit(1)
+
+proc list_or_show_extra_module() =
+  var manifest_files = directory_structure_from_manifest()
+  var local_files = directory_structure_from_local()
+  if info_args.len == 0 or info_args[0] == "help":
+    list_extra_modules(manifest_files,local_files)
+  else:
+    info_extra_module(manifest_files)
 
 proc list_or_install_extra_modules() =
   var manifest_files = directory_structure_from_manifest()
@@ -806,6 +859,7 @@ const help_text = """
     generate, gen = Specify a project file to generate; Leave blank for help
     copy, cp      = Create a new module as a copy of an existing one; Leave blank for help
     download, dl  = Download extra modules from the MABE_extras repository; Leave blank for help
+    info, i       = Information about an extra module from the MABE_extras repository; Leave blank for help
 
   options:
     --force, -f   = Force any associated command (clean rebuild, overwrite files, etc.)
@@ -837,6 +891,7 @@ proc main() =
         p.capture_command new
         p.capture_command copy
         p.capture_command download
+        p.capture_command info
         p.capture_command generate
         p.capture_command init
         when defined(windows):
@@ -865,6 +920,11 @@ proc main() =
   if download_enabled:
     list_or_install_extra_modules()
     discard refresh_and_get_modules()
+    quit(0)
+
+  # info for a module requested from MABE_extras repo
+  if info_enabled:
+    list_or_show_extra_module()
     quit(0)
 
   # make new module as copy from another

@@ -35,7 +35,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: win_build.exe
           asset_name: win_build.exe
-          tag: ${{ github.ref }}
+          tag: release
   build-mac:
     runs-on: macos-latest
     if: "contains(github.event.head_commit.message, 'please release')"
@@ -70,7 +70,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: osx_build
           asset_name: osx_build
-          tag: ${{ github.ref }}
+          tag: release
   build-linux:
     runs-on: ubuntu-latest
     container:
@@ -107,4 +107,4 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: lin_build
           asset_name: lin_build
-          tag: ${{ github.ref }}
+          tag: release
