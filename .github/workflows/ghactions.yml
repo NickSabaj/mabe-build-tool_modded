@@ -77,13 +77,9 @@ jobs:
       image: centos:7 #centos/devtoolset-7-toolchain-centos7
     if: "contains(github.event.head_commit.message, 'please release')"
     steps:
-      - name: DoCrash
-        run: which yum
       - name: Install DevTools
         run: |
           yum install gcc autoconf automake make binutils glibc glibc-devel glibc-static -y
-          #yum group install "Development Tools" -y
-          #yum install glibc-static libstdc++-static -y
       - uses: actions/checkout@v2
       - name: dl-choosenim
         run: curl --output init.sh https://nim-lang.org/choosenim/init.sh
