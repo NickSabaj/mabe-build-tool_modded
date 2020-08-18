@@ -35,7 +35,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: win_build.exe
           asset_name: win_build.exe
-          tag: release
+          tag: latest
   build-mac:
     runs-on: macos-latest
     if: "contains(github.event.head_commit.message, 'please release')"
@@ -70,7 +70,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: osx_build
           asset_name: osx_build
-          tag: release
+          tag: latest
   build-linux:
     runs-on: ubuntu-latest
     container:
@@ -79,8 +79,17 @@ jobs:
     steps:
       - name: Install DevTools
         run: |
-          yum install gcc autoconf automake make binutils glibc glibc-devel glibc-static -y
+          yum install gcc autoconf automake make binutils glibc glibc-devel glibc-static git -y
       - uses: actions/checkout@v2
+
+      - name: Get and Build Musl
+        run: |
+          git clone --depth=1 git://git.musl-libc.org/musl musl
+          cd musl
+          ./configure --prefix="$PWD/../muslbin"
+          make -j2 #--with-arch=x86_64 -j2
+          make install
+          cd ..
       - name: dl-choosenim
         run: curl --output init.sh https://nim-lang.org/choosenim/init.sh
       - name: install-nim
@@ -92,7 +101,7 @@ jobs:
           nim -v
           ld -v
       - name: build
-        run: nim c -o:lin_build -d:danger --panics:on --passL:--static --passC:-std=gnu99 build
+        run: nim c -o:lin_build -d:danger --panics:on --cc.exe:muslbin/bin/musl-gcc --cc.linkerexe:muslbin/bin/musl-gcc --passC:-std=gnu99 build
       - name: Run UPX
         uses: crazy-max/ghaction-upx@v1
         with:
@@ -107,4 +116,5 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: lin_build
           asset_name: lin_build
-          tag: release
+          tag: latest
+          overwrite: true
