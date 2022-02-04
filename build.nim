@@ -212,7 +212,7 @@ proc get_code_modules():ModulesTable =
   # scans the ./code/ dir for all module names
   for module_type in MODULE_TYPES:
     for filetype,filename in walk_dir "code" / module_type:
-      if filetype == pcDir:
+      if filetype in {pcDir,pcLinkToDir}:
         var module_name = filename.split_path.tail
         module_name.remove_suffix module_type
         result.mget_or_put(module_type,new_module_list())[module_name] = new_module_properties(enabled=false)
@@ -225,7 +225,7 @@ proc get_code_modules():ModulesTable =
 
 
 proc enable_default_modules(allmodules:var ModulesTable) =
-  const default_modules = ["LODwAP","CGP","Circular","Simple","Test"]
+  const default_modules = ["LODwAP","CGP","Circular","Tournament","Test"]
   for i,(module_type,module_name) in zip(MODULE_TYPES,default_modules):
     if allmodules[module_type].has_key module_name:
       allmodules[module_type][module_name].enabled = true
