@@ -5,20 +5,30 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      buildwin:
+        type: boolean
+      buildosx:
+        type: boolean
+      buildlin:
+        type: boolean
+      buildtest:
+        type: boolean
 
 jobs:
   build-win:
     runs-on: windows-latest
-    if: "contains(github.event.head_commit.message, 'please release')"
+    if: contains(github.event.head_commit.message, 'please release') || (github.event_name == 'workflow_dispatch' && github.event.inputs.buildwin == 'true')
     steps:
       - uses: actions/checkout@v2
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Get Nim
         run: |
-          curl --output choosenim.exe -L "https://github.com/dom96/choosenim/releases/download/v0.6.0/choosenim-0.6.0_windows_amd64.exe"
+          curl --output choosenim.exe -L "https://github.com/dom96/choosenim/releases/download/v0.8.2/choosenim-0.8.2_windows_amd64.exe"
           .\choosenim.exe -y stable
       - name: Add Nim Path
-        run: echo "::add-path::$HOME\.nimble\bin"
+        run: echo "$HOME\.nimble\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Test Nim
         run: nim -v
       - name: build
@@ -27,7 +37,7 @@ jobs:
         uses: crazy-max/ghaction-upx@v1
         with:
           version: latest
-          file: ./win_build.exe
+          files: ./win_build.exe
           args: --best -q
       - name: Upload Windows Binary
         uses: svenstaro/upload-release-action@v2
@@ -36,34 +46,61 @@ jobs:
           file: win_build.exe
           asset_name: win_build.exe
           tag: latest
+          overwrite: true
   build-mac:
     runs-on: macos-latest
-    if: "contains(github.event.head_commit.message, 'please release')"
+    if: contains(github.event.head_commit.message, 'please release') || (github.event_name == 'workflow_dispatch' && github.event.inputs.buildosx == 'true')
     steps:
       - uses: actions/checkout@v2
-      - name: Download MacOS SDK
-        run: curl --output sdk.tar.xz -L "https://github.com/phracker/MacOSX-SDKs/releases/download/10.15/MacOSX10.13.sdk.tar.xz"
-      - name: Exctract SDK
+      - name: download nim source
         run: |
-          ls -lh sdk.tar.xz
-          tar xf sdk.tar.xz
-          ls .
-      - name: Add Nim Path
-        run: echo "::add-path::$HOME/.nimble/bin"
-      - name: Download Nim and Compile
-        env:
-          MACOSX_DEPLOYMENT_TARGET: 10.13
+          git clone --depth=1 -b v1.6.2 https://github.com/nim-lang/nim
+          echo "NIM_TAG=$(git --git-dir nim/.git tag -l)" >> $GITHUB_ENV
+      - name: inspect nim version
         run: |
-          echo ::set-env name=SDKROOT::$PWD/MacOSX10.13.sdk
-          curl --output init.sh https://nim-lang.org/choosenim/init.sh
-          sh init.sh -y
+          echo "nim version: $NIM_TAG"
+      - name: Load cached nim compiler
+        id: cache-nim
+        uses: actions/cache@v2
+        with:
+          path: |
+            nim/bin
+          key: ${{ runner.os }}-${{ env.NIM_TAG }}
+      - name: compile nim
+        if: steps.cache-nim.outputs.cache-hit != 'true'
+        run: |
+          cd nim
+          git clone --depth=1 https://github.com/nim-lang/csources_v1
+          cd csources_v1
+          bash build.sh
+          cd ..
+          bin/nim c -d:release koch
+          ./koch boot -d:release
+          ./koch nimble
+          cd ..
+      - name: init-nim
+        run: |
+          echo "${PWD}/.nimble/bin" >> $GITHUB_PATH
+          echo "${PWD}/nim/bin" >> $GITHUB_PATH
+      - name: check-versions
+        run: |
           nim -v
-          nim c -o:osx_build -d:danger --panics:on build
-          #ls -lh osx_build
-          git clone --branch=support_files "https://github.com/joryschossau/mabe-build-tool" supporting_files
-          unzip supporting_files/bin/osx_upx.zip
-          ./osx_upx -h
-          ./osx_upx --best -q osx_build
+      - name: Build package
+        run: |
+          echo "building x86_64 target..."
+          sudo xcode-select --switch /Applications/Xcode_11.7.app
+          echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx10.15 --show-sdk-platform-version)" >> $GITHUB_ENV
+          echo "SDKROOT=$(xcrun -sdk macosx10.15 --show-sdk-path)" >> $GITHUB_ENV
+          nim c -o:osx_build.x64 --gc:arc -d:danger --panics:on -l:"-target x86_64-apple-macos10.13" -t:"-target x86_64-apple-macos10.13" build
+          strip osx_build.x64
+          echo "building arm64 target..."
+          sudo xcode-select --switch /Applications/Xcode_12.4.app
+          echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version)" >> $GITHUB_ENV
+          echo "SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path)" >> $GITHUB_ENV
+          nim c -o:osx_build.arm64 --gc:arc -d:danger --panics:on -l:"-target arm64-apple-macos11.1" -t:"-target arm64-apple-macos11.1" build
+          strip osx_build.arm64
+          echo "building universal executable..."
+          lipo -create -output osx_build osx_build.arm64 osx_build.x64
       - name: Upload OSX Binary
         uses: svenstaro/upload-release-action@v2
         with:
@@ -71,18 +108,33 @@ jobs:
           file: osx_build
           asset_name: osx_build
           tag: latest
+          overwrite: true
   build-linux:
     runs-on: ubuntu-latest
     container:
       image: centos:7 #centos/devtoolset-7-toolchain-centos7
-    if: "contains(github.event.head_commit.message, 'please release')"
+    if: contains(github.event.head_commit.message, 'please release') || (github.event_name == 'workflow_dispatch' && github.event.inputs.buildlin == 'true')
     steps:
+      - name: Load cached system packages
+        id: cache-rpm
+        uses: actions/cache@v2
+        with:
+          path: |
+            /var/cache/yum/x86_64/7/base/packages
+          key: centos7packages
       - name: Install DevTools
         run: |
           yum install gcc autoconf automake make binutils glibc glibc-devel glibc-static git -y
       - uses: actions/checkout@v2
-
+      - name: Load cached musl
+        id: cache-musl
+        uses: actions/cache@v2
+        with:
+          path: |
+            musl
+          key: ${{ runner.os }}-musl
       - name: Get and Build Musl
+        if: steps.cache-musl.outputs.cache-hit != 'true'
         run: |
           git clone --depth=1 git://git.musl-libc.org/musl musl
           cd musl
@@ -90,16 +142,47 @@ jobs:
           make -j2 #--with-arch=x86_64 -j2
           make install
           cd ..
-      - name: dl-choosenim
-        run: curl --output init.sh https://nim-lang.org/choosenim/init.sh
-      - name: install-nim
-        run: sh init.sh -y
+      - name: download nim source
+        run: |
+          git clone --depth=1 -b v1.6.2 https://github.com/nim-lang/nim
+          echo "NIM_TAG=$(git --git-dir nim/.git tag -l)" >> $GITHUB_ENV
+      - name: inspect nim version
+        run: |
+          echo "nim version: $NIM_TAG"
+      - name: Load cached nim compiler
+        id: cache-nim
+        uses: actions/cache@v2
+        with:
+          path: |
+            nim/bin
+          key: ${{ runner.os }}-${{ env.NIM_TAG }}v2
+      - name: Inspect cached nim compiler
+        run: |
+          echo " -- LS -- "
+          ls
+          echo " -- NIM -- "
+          ls nim
+          echo " -- NIM/BIN -- "
+          ls nim/bin
+      - name: compile nim
+        if: steps.cache-nim.outputs.cache-hit != 'true'
+        run: |
+          cd nim
+          git clone --depth=1 https://github.com/nim-lang/csources_v1
+          cd csources_v1
+          bash build.sh
+          cd ..
+          bin/nim c -d:release koch
+          ./koch boot -d:release
+          ./koch nimble
+          cd ..
       - name: init-nim
-        run: echo "::add-path::/github/home/.nimble/bin"
+        run: |
+          echo "${PWD}/.nimble/bin" >> $GITHUB_PATH
+          echo "${PWD}/nim/bin" >> $GITHUB_PATH
       - name: check-versions
         run: |
           nim -v
-          ld -v
       - name: build
         run: nim c -o:lin_build -d:danger --panics:on --cc.exe:muslbin/bin/musl-gcc --cc.linkerexe:muslbin/bin/musl-gcc --passC:-std=gnu99 build
       - name: Run UPX
@@ -118,3 +201,10 @@ jobs:
           asset_name: lin_build
           tag: latest
           overwrite: true
+  build-mac-test:
+    runs-on: macos-latest
+    if: contains(github.event.head_commit.message, 'please release') || (github.event_name == 'workflow_dispatch' && github.event.inputs.buildtest == 'true')
+    steps:
+      - name: TestOSX
+        run: |
+          xcodebuild -sdk -version
