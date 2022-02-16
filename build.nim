@@ -212,7 +212,8 @@ proc get_code_modules():ModulesTable =
   # scans the ./code/ dir for all module names
   for module_type in MODULE_TYPES:
     for filetype,filename in walk_dir "code" / module_type:
-      if filetype in {pcDir,pcLinkToDir}:
+      # support symlinks, except on windows where the code looks like a virus
+      if filetype in (when defined(windows): {pcDir} else: {pcDir,pcLinkToDir}):
         var module_name = filename.split_path.tail
         module_name.remove_suffix module_type
         result.mget_or_put(module_type,new_module_list())[module_name] = new_module_properties(enabled=false)
