@@ -185,12 +185,6 @@ jobs:
           nim -v
       - name: build
         run: nim c -o:lin_build -d:danger --panics:on --cc.exe:muslbin/bin/musl-gcc --cc.linkerexe:muslbin/bin/musl-gcc --passC:-std=gnu99 build
-      - name: Run UPX
-        uses: crazy-max/ghaction-upx@v1
-        with:
-          version: latest
-          file: ./lin_build
-          args: --best -q
       - name: See Size
         run: ls -lh lin_build
       - name: Upload Linux Binary
