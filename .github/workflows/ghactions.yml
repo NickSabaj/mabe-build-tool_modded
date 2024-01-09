@@ -32,15 +32,11 @@ jobs:
           echo "$HOME/.nimble/bin" >> $GITHUB_PATH
       - name: Test Nim
         run: nim -v
-      - name: dependencies
-        run: nimble install -d -Y
       - name: cross compiler
         run: nimble install https://github.com/iffy/nimxc.git
-
-      - name: build windows (aelm-win-x64.exe)
+      - name: build windows (win_build.exe)
         run: |
           nimxc c -d:mingw --target windows-amd64 -o:win_build.exe -d:danger --panics:on build
-          mv src/aelm.exe aelm-win-x64.exe
       - name: Upload Windows Binary
         uses: svenstaro/upload-release-action@v2
         with:
