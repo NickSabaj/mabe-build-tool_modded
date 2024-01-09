@@ -18,25 +18,28 @@ on:
 
 jobs:
   build-win:
-    runs-on: macos-latest
+    runs-on: windows-latest
     if: contains(github.event.head_commit.message, 'please release') || (github.event_name == 'workflow_dispatch' && github.event.inputs.buildwin == 'true')
     steps:
       - uses: actions/checkout@v3
-      - name: Get Nim
-        run: |
-          curl -L https://github.com/nim-lang/nightlies/releases/download/latest-version-2-0/macosx_x64.tar.xz --output macosx_x64.tar.xz
-          tar xf macosx_x64.tar.xz
-      - name: Configure Nim
-        run: |
-          echo "${PWD}/nim-2.0.3/bin" >> $GITHUB_PATH
-          echo "$HOME/.nimble/bin" >> $GITHUB_PATH
+      - name: Cache nimble
+        id: cache-nimble
+        uses: actions/cache@v3
+        with:
+          path: ~/.nimble
+          key: ${{ runner.os }}-nimble-${{ hashFiles('*.nimble') }}
+          restore-keys: |
+            ${{ runner.os }}-nimble-
+        if: runner.os != 'Windows'
+      - uses: jiro4989/setup-nim-action@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: nimble --version
       - name: Test Nim
         run: nim -v
-      - name: cross compiler
-        run: nimble install -y https://github.com/iffy/nimxc.git
       - name: build windows (win_build.exe)
         run: |
-          nimxc c -d:mingw --target windows-amd64 -o:win_build.exe -d:danger --panics:on build
+          nimxc c -d:release -o:win_build.exe -d:danger --panics:on build
       - name: Upload Windows Binary
         uses: svenstaro/upload-release-action@v2
         with:
