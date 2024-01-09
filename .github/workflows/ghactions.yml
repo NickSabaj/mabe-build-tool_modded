@@ -37,9 +37,10 @@ jobs:
       - run: nimble --version
       - name: Test Nim
         run: nim -v
+      - uses: ilammy/msvc-dev-cmd@v1.4.1
       - name: build windows (win_build.exe)
         run: |
-          nim c -d:release --cpu:i386 -o:win_build.exe -d:danger --panics:on build
+          nim c --cc:vcc -d:release -o:win_build.exe -d:danger --panics:on build
       - name: Upload Windows Binary
         uses: svenstaro/upload-release-action@v2
         with:
