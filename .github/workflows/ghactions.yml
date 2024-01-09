@@ -28,7 +28,7 @@ jobs:
           tar xf macosx_x64.tar.xz
       - name: Configure Nim
         run: |
-          echo "${PWD}/nim-2.0.1/bin" >> $GITHUB_PATH
+          echo "${PWD}/nim-2.0.3/bin" >> $GITHUB_PATH
           echo "$HOME/.nimble/bin" >> $GITHUB_PATH
       - name: Test Nim
         run: nim -v
