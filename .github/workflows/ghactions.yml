@@ -39,7 +39,7 @@ jobs:
         run: nim -v
       - name: build windows (win_build.exe)
         run: |
-          nimxc c -d:release -o:win_build.exe -d:danger --panics:on build
+          nim c -d:release -o:win_build.exe -d:danger --panics:on build
       - name: Upload Windows Binary
         uses: svenstaro/upload-release-action@v2
         with:
