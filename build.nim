@@ -478,6 +478,11 @@ proc generate_and_build() =
   cmake_options.add &"-DCMAKE_CONFIGURATION_TYPES={BUILD_TYPE}"
   write_warning("Warning: ",&"configuring for {BUILD_TYPE} mode build")
 
+  # inexperienced with nim, so just imitating the above code for a simple fix
+  var STDLIB_TYPE= "-stdlib=libc++"
+  if debug_enabled:
+    cmake_options.add &"-DCMAKE_CXX_FLAGS={STDLIB_TYPE}"
+
   # fail if the compiler doesn't exist
   if not exe_exists cxx_compiler:
     write_error("Error: ",&"compiler '{cxx_compiler}' not found")
